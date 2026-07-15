@@ -105,7 +105,7 @@ export const rejectContribution = async (req: Request, res: Response) => {
         .send({ message: "Contribution already processed" });
     }
 
-    // supporter কে credit ফেরত দাও
+    // supporter কে credit
     await db
       .collection("user")
       .updateOne(
@@ -113,7 +113,7 @@ export const rejectContribution = async (req: Request, res: Response) => {
         { $inc: { credits: contribution.contribution_amount } },
       );
 
-    // contribution status আপডেট করো
+    // contribution status
     await db
       .collection("contributions")
       .updateOne({ _id: new ObjectId(id) }, { $set: { status: "rejected" } });
@@ -197,5 +197,101 @@ export const createContribution = async (req: Request, res: Response) => {
     res.status(201).send({ insertedId: result.insertedId, ...newContribution });
   } catch (err) {
     res.status(500).send({ message: "Failed to create contribution" });
+  }
+};
+
+export const getApprovedContributionsForSupporter = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const db = getDB();
+    const { email } = req.query;
+
+    if (!email || typeof email !== "string") {
+      return res.status(400).send({ message: "supporterEmail is required" });
+    }
+
+    const contributions = await db
+      .collection("contributions")
+      .find({ supporter_email: email, status: "approved" })
+      .sort({ current_date: -1 })
+      .toArray();
+
+    res.send(contributions);
+  } catch (err) {
+    res.status(500).send({ message: "Failed to fetch approved contributions" });
+  }
+};
+
+export const getMyContributionsPaginated = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const db = getDB();
+    const { email, page = "1", limit = "5" } = req.query;
+
+    if (!email || typeof email !== "string") {
+      return res.status(400).send({ message: "supporterEmail is required" });
+    }
+
+    const pageNum = Math.max(1, Number(page));
+    const limitNum = Math.max(1, Number(limit));
+    const skip = (pageNum - 1) * limitNum;
+
+    const filter = { supporter_email: email };
+
+    const [contributions, total] = await Promise.all([
+      db
+        .collection("contributions")
+        .find(filter)
+        .sort({ current_date: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .toArray(),
+      db.collection("contributions").countDocuments(filter),
+    ]);
+
+    res.send({
+      contributions,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+    });
+  } catch (err) {
+    res.status(500).send({ message: "Failed to fetch contributions" });
+  }
+};
+
+export const getSupporterStats = async (req: Request, res: Response) => {
+  try {
+    const db = getDB();
+    const { email } = req.query;
+
+    if (!email || typeof email !== "string") {
+      return res.status(400).send({ message: "supporterEmail is required" });
+    }
+
+    const contributions = await db
+      .collection("contributions")
+      .find({ supporter_email: email })
+      .toArray();
+
+    const totalContributions = contributions.length;
+    const pendingContributions = contributions.filter(
+      (c) => c.status === "pending",
+    ).length;
+    const totalAmountContributed = contributions
+      .filter((c) => c.status === "approved")
+      .reduce((sum, c) => sum + (c.contribution_amount || 0), 0);
+
+    res.send({
+      totalContributions,
+      pendingContributions,
+      totalAmountContributed,
+    });
+  } catch (err) {
+    res.status(500).send({ message: "Failed to fetch stats" });
   }
 };

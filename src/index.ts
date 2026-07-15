@@ -7,7 +7,7 @@ import { connectDB } from "./config/db";
 import campaignRoutes from "./modules/campaigns/campaign.routes";
 import contributionRoutes from "./modules/contributions/contribution.routes";
 import withdrawalRoutes from "./modules/withdrawals/withdrawal.routes";
-
+import paymentRoutes from "./modules/payments/payment.routes";
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -23,6 +23,7 @@ app.use(express.json());
 app.use("/campaigns", campaignRoutes);
 app.use("/contributions", contributionRoutes);
 app.use("/withdrawals", withdrawalRoutes);
+app.use("/payments", paymentRoutes);
 
 app.get("/", (req, res) => {
   res.send({ status: "ok", message: "Crowdfunding server is running" });
