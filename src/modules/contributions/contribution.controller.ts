@@ -279,8 +279,14 @@ export const getSupporterStats = async (req: Request, res: Response) => {
       .toArray();
 
     const totalContributions = contributions.length;
-    const pendingContributions = contributions.filter(
+    const pendingCount = contributions.filter(
       (c) => c.status === "pending",
+    ).length;
+    const approvedCount = contributions.filter(
+      (c) => c.status === "approved",
+    ).length;
+    const rejectedCount = contributions.filter(
+      (c) => c.status === "rejected",
     ).length;
     const totalAmountContributed = contributions
       .filter((c) => c.status === "approved")
@@ -288,8 +294,13 @@ export const getSupporterStats = async (req: Request, res: Response) => {
 
     res.send({
       totalContributions,
-      pendingContributions,
+      pendingContributions: pendingCount,
       totalAmountContributed,
+      statusBreakdown: [
+        { name: "Approved", value: approvedCount },
+        { name: "Pending", value: pendingCount },
+        { name: "Rejected", value: rejectedCount },
+      ],
     });
   } catch (err) {
     res.status(500).send({ message: "Failed to fetch stats" });
