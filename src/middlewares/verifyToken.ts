@@ -1,10 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { jwtVerify, createRemoteJWKSet } from "jose";
 
-const JWKS = createRemoteJWKSet(
-  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`),
-);
-
 export interface DecodedUser {
   email: string;
   role?: string;
@@ -17,6 +13,19 @@ declare global {
       decoded?: DecodedUser;
     }
   }
+}
+
+let JWKS: ReturnType<typeof createRemoteJWKSet> | null = null;
+
+function getJWKS() {
+  if (!JWKS) {
+    const clientUrl = process.env.CLIENT_URL;
+    if (!clientUrl) {
+      throw new Error("CLIENT_URL is not set in environment variables");
+    }
+    JWKS = createRemoteJWKSet(new URL(`${clientUrl}/api/auth/jwks`));
+  }
+  return JWKS;
 }
 
 export const verifyToken = async (
@@ -32,7 +41,7 @@ export const verifyToken = async (
   }
 
   try {
-    const { payload } = await jwtVerify(token, JWKS);
+    const { payload } = await jwtVerify(token, getJWKS());
     req.decoded = payload as DecodedUser;
     next();
   } catch (err) {
