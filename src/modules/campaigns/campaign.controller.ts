@@ -198,3 +198,45 @@ export const deleteCampaign = async (req: Request, res: Response) => {
     res.status(500).send({ message: "Failed to delete campaign" });
   }
 };
+export const getCreatorStats = async (req: Request, res: Response) => {
+  try {
+    const db = getDB();
+    const { email } = req.query;
+
+    if (!email || typeof email !== "string") {
+      return res.status(400).send({ message: "creatorEmail is required" });
+    }
+
+    const campaigns = await db
+      .collection("campaigns")
+      .find({ creator_email: email })
+      .toArray();
+
+    const totalCampaigns = campaigns.length;
+    const activeCampaigns = campaigns.filter(
+      (c) => c.status === "approved" && new Date(c.deadline) >= new Date(),
+    ).length;
+    const totalRaised = campaigns.reduce(
+      (sum, c) => sum + (c.amount_raised || 0),
+      0,
+    );
+
+    const campaignBreakdown = campaigns.map((c) => ({
+      name: c.campaign_title,
+      raised: c.amount_raised || 0,
+      goal: c.funding_goal || 0,
+      percent: c.funding_goal
+        ? Math.round(((c.amount_raised || 0) / c.funding_goal) * 100)
+        : 0,
+    }));
+
+    res.send({
+      totalCampaigns,
+      activeCampaigns,
+      totalRaised,
+      campaignBreakdown,
+    });
+  } catch (err) {
+    res.status(500).send({ message: "Failed to fetch stats" });
+  }
+};

@@ -10,11 +10,13 @@ import {
 } from "./campaign.controller";
 import { verifyToken } from "../../middlewares/verifyToken";
 import { verifyRole } from "../../middlewares/verifyRole";
+import { getCreatorStats } from "./campaign.controller";
 
 const router = Router();
 
 // public
 router.get("/top-funded", getTopFundedCampaigns);
+router.get("/stats", verifyToken, verifyRole(["creator"]), getCreatorStats);
 
 // protected — creator only
 router.get(
