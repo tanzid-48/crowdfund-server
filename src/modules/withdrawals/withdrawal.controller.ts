@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { getDB } from "../../config/db";
 import { WITHDRAW_RATE, MIN_WITHDRAW_CREDIT } from "../../utils/creditMath";
+import { ObjectId } from "mongodb";
 
 export const createWithdrawal = async (req: Request, res: Response) => {
   try {
@@ -128,5 +129,40 @@ export const getAvailableCredits = async (req: Request, res: Response) => {
     });
   } catch (err) {
     res.status(500).send({ message: "Failed to calculate available credits" });
+  }
+};
+
+//admin
+
+export const getPendingWithdrawals = async (req: Request, res: Response) => {
+  try {
+    const db = getDB();
+    const withdrawals = await db
+      .collection("withdrawals")
+      .find({ status: "pending" })
+      .sort({ withdraw_date: -1 })
+      .toArray();
+    res.send(withdrawals);
+  } catch (err) {
+    res.status(500).send({ message: "Failed to fetch pending withdrawals" });
+  }
+};
+
+export const approveWithdrawal = async (req: Request, res: Response) => {
+  try {
+    const db = getDB();
+    const id = req.params.id as string;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid withdrawal id" });
+    }
+
+    await db
+      .collection("withdrawals")
+      .updateOne({ _id: new ObjectId(id) }, { $set: { status: "approved" } });
+
+    res.send({ message: "Withdrawal approved" });
+  } catch (err) {
+    res.status(500).send({ message: "Failed to approve withdrawal" });
   }
 };

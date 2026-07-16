@@ -6,6 +6,10 @@ import {
 } from "./withdrawal.controller";
 import { verifyToken } from "../../middlewares/verifyToken";
 import { verifyRole } from "../../middlewares/verifyRole";
+import {
+  getPendingWithdrawals,
+  approveWithdrawal,
+} from "./withdrawal.controller";
 
 const router = Router();
 
@@ -17,5 +21,17 @@ router.get(
   getAvailableCredits,
 );
 router.get("/", verifyToken, verifyRole(["creator"]), getWithdrawalsForCreator);
+router.get(
+  "/pending",
+  verifyToken,
+  verifyRole(["admin"]),
+  getPendingWithdrawals,
+);
+router.patch(
+  "/:id/approve",
+  verifyToken,
+  verifyRole(["admin"]),
+  approveWithdrawal,
+);
 
 export default router;

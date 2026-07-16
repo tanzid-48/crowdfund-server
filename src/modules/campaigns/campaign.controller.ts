@@ -240,3 +240,103 @@ export const getCreatorStats = async (req: Request, res: Response) => {
     res.status(500).send({ message: "Failed to fetch stats" });
   }
 };
+
+//admin
+export const getPendingCampaigns = async (req: Request, res: Response) => {
+  try {
+    const db = getDB();
+    const campaigns = await db
+      .collection("campaigns")
+      .find({ status: "pending" })
+      .sort({ createdAt: -1 })
+      .toArray();
+    res.send(campaigns);
+  } catch (err) {
+    res.status(500).send({ message: "Failed to fetch pending campaigns" });
+  }
+};
+
+export const approveCampaign = async (req: Request, res: Response) => {
+  try {
+    const db = getDB();
+    const id = req.params.id as string;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid campaign id" });
+    }
+
+    await db
+      .collection("campaigns")
+      .updateOne({ _id: new ObjectId(id) }, { $set: { status: "approved" } });
+
+    res.send({ message: "Campaign approved" });
+  } catch (err) {
+    res.status(500).send({ message: "Failed to approve campaign" });
+  }
+};
+
+export const rejectCampaign = async (req: Request, res: Response) => {
+  try {
+    const db = getDB();
+    const id = req.params.id as string;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid campaign id" });
+    }
+
+    const campaign = await db
+      .collection("campaigns")
+      .findOne({ _id: new ObjectId(id) });
+    if (!campaign) {
+      return res.status(404).send({ message: "Campaign not found" });
+    }
+
+    await db
+      .collection("campaigns")
+      .updateOne({ _id: new ObjectId(id) }, { $set: { status: "rejected" } });
+
+    await db.collection("notifications").insertOne({
+      message: `Your campaign "${campaign.campaign_title}" was rejected by admin`,
+      toEmail: campaign.creator_email,
+      actionRoute: "/dashboard/creator-home/my-campaigns",
+      time: new Date(),
+      seen: false,
+    });
+
+    res.send({ message: "Campaign rejected" });
+  } catch (err) {
+    res.status(500).send({ message: "Failed to reject campaign" });
+  }
+};
+
+export const getAllCampaignsForAdmin = async (req: Request, res: Response) => {
+  try {
+    const db = getDB();
+    const campaigns = await db
+      .collection("campaigns")
+      .find({})
+      .sort({ createdAt: -1 })
+      .toArray();
+    res.send(campaigns);
+  } catch (err) {
+    res.status(500).send({ message: "Failed to fetch campaigns" });
+  }
+};
+
+export const adminDeleteCampaign = async (req: Request, res: Response) => {
+  try {
+    const db = getDB();
+    const id = req.params.id as string;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid campaign id" });
+    }
+
+    await db.collection("campaigns").deleteOne({ _id: new ObjectId(id) });
+    await db.collection("contributions").deleteMany({ campaign_id: id });
+
+    res.send({ message: "Campaign deleted" });
+  } catch (err) {
+    res.status(500).send({ message: "Failed to delete campaign" });
+  }
+};
