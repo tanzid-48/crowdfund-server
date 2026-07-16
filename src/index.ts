@@ -9,6 +9,7 @@ import contributionRoutes from "./modules/contributions/contribution.routes";
 import withdrawalRoutes from "./modules/withdrawals/withdrawal.routes";
 import paymentRoutes from "./modules/payments/payment.routes";
 import userRoutes from "./modules/users/user.routes";
+import reportRoutes from "./modules/reports/report.routes";
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -26,6 +27,7 @@ app.use("/contributions", contributionRoutes);
 app.use("/withdrawals", withdrawalRoutes);
 app.use("/payments", paymentRoutes);
 app.use("/users", userRoutes);
+app.use("/reports", reportRoutes);
 
 app.get("/", (req, res) => {
   res.send({ status: "ok", message: "Crowdfunding server is running" });
