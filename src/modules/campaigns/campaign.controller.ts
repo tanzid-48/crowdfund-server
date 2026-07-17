@@ -27,7 +27,7 @@ export const getAllApprovedCampaigns = async (req: Request, res: Response) => {
 
     const filter: Record<string, unknown> = {
       status: "approved",
-      deadline: { $gte: new Date() }, // deadline pass hoy nai emon gulo
+      deadline: { $gte: new Date() }, // deadline pass
     };
 
     if (category && typeof category === "string") {
@@ -140,21 +140,31 @@ export const updateCampaign = async (req: Request, res: Response) => {
     const db = getDB();
     const id = req.params.id as string;
     const { campaign_title, campaign_story, reward_info } = req.body;
+    const requesterEmail = req.decoded?.email;
 
     if (!ObjectId.isValid(id)) {
       return res.status(400).send({ message: "Invalid campaign id" });
     }
 
-    const result = await db
+    const campaign = await db
+      .collection("campaigns")
+      .findOne({ _id: new ObjectId(id) });
+    if (!campaign) {
+      return res.status(404).send({ message: "Campaign not found" });
+    }
+
+    if (campaign.creator_email !== requesterEmail) {
+      return res
+        .status(403)
+        .send({ message: "You can only update your own campaigns" });
+    }
+
+    await db
       .collection("campaigns")
       .updateOne(
         { _id: new ObjectId(id) },
         { $set: { campaign_title, campaign_story, reward_info } },
       );
-
-    if (result.matchedCount === 0) {
-      return res.status(404).send({ message: "Campaign not found" });
-    }
 
     res.send({ message: "Campaign updated" });
   } catch (err) {
@@ -166,18 +176,30 @@ export const deleteCampaign = async (req: Request, res: Response) => {
   try {
     const db = getDB();
     const id = req.params.id as string;
+    const requesterEmail = req.decoded?.email;
 
     if (!ObjectId.isValid(id)) {
       return res.status(400).send({ message: "Invalid campaign id" });
     }
 
-    //  approved contribution
+    const campaign = await db
+      .collection("campaigns")
+      .findOne({ _id: new ObjectId(id) });
+    if (!campaign) {
+      return res.status(404).send({ message: "Campaign not found" });
+    }
+
+    if (campaign.creator_email !== requesterEmail) {
+      return res
+        .status(403)
+        .send({ message: "You can only delete your own campaigns" });
+    }
+
     const approvedContributions = await db
       .collection("contributions")
       .find({ campaign_id: id, status: "approved" })
       .toArray();
 
-    //  supporter  credit
     for (const contribution of approvedContributions) {
       await db
         .collection("user")
@@ -198,6 +220,7 @@ export const deleteCampaign = async (req: Request, res: Response) => {
     res.status(500).send({ message: "Failed to delete campaign" });
   }
 };
+
 export const getCreatorStats = async (req: Request, res: Response) => {
   try {
     const db = getDB();

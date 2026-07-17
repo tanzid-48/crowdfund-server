@@ -18,7 +18,6 @@ import { verifyRole } from "../../middlewares/verifyRole";
 import { getCreatorStats } from "./campaign.controller";
 
 const router = Router();
-
 router.get("/top-funded", getTopFundedCampaigns);
 router.get("/stats", verifyToken, verifyRole(["creator"]), getCreatorStats);
 router.get(

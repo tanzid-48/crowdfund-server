@@ -35,6 +35,7 @@ export const approveContribution = async (req: Request, res: Response) => {
   try {
     const db = getDB();
     const id = req.params.id as string;
+    const requesterEmail = req.decoded?.email;
 
     if (!ObjectId.isValid(id)) {
       return res.status(400).send({ message: "Invalid contribution id" });
@@ -48,13 +49,19 @@ export const approveContribution = async (req: Request, res: Response) => {
       return res.status(404).send({ message: "Contribution not found" });
     }
 
+    // ownership check
+    if (contribution.creator_email !== requesterEmail) {
+      return res.status(403).send({
+        message: "You can only approve contributions to your own campaigns",
+      });
+    }
+
     if (contribution.status !== "pending") {
       return res
         .status(400)
         .send({ message: "Contribution already processed" });
     }
 
-    // campaign এর amount_raised বাড়াও
     await db
       .collection("campaigns")
       .updateOne(
@@ -62,12 +69,10 @@ export const approveContribution = async (req: Request, res: Response) => {
         { $inc: { amount_raised: contribution.contribution_amount } },
       );
 
-    // contribution status
     await db
       .collection("contributions")
       .updateOne({ _id: new ObjectId(id) }, { $set: { status: "approved" } });
 
-    // notification
     await db.collection("notifications").insertOne({
       message: `Your contribution of ${contribution.contribution_amount} credits to ${contribution.campaign_title} was approved by ${contribution.creator_name}`,
       toEmail: contribution.supporter_email,
@@ -86,6 +91,7 @@ export const rejectContribution = async (req: Request, res: Response) => {
   try {
     const db = getDB();
     const id = req.params.id as string;
+    const requesterEmail = req.decoded?.email;
 
     if (!ObjectId.isValid(id)) {
       return res.status(400).send({ message: "Invalid contribution id" });
@@ -99,13 +105,19 @@ export const rejectContribution = async (req: Request, res: Response) => {
       return res.status(404).send({ message: "Contribution not found" });
     }
 
+    // ownership check
+    if (contribution.creator_email !== requesterEmail) {
+      return res.status(403).send({
+        message: "You can only reject contributions to your own campaigns",
+      });
+    }
+
     if (contribution.status !== "pending") {
       return res
         .status(400)
         .send({ message: "Contribution already processed" });
     }
 
-    // supporter কে credit
     await db
       .collection("user")
       .updateOne(
@@ -113,12 +125,10 @@ export const rejectContribution = async (req: Request, res: Response) => {
         { $inc: { credits: contribution.contribution_amount } },
       );
 
-    // contribution status
     await db
       .collection("contributions")
       .updateOne({ _id: new ObjectId(id) }, { $set: { status: "rejected" } });
 
-    // notification পাঠাও
     await db.collection("notifications").insertOne({
       message: `Your contribution of ${contribution.contribution_amount} credits to ${contribution.campaign_title} was rejected. Your credits have been refunded.`,
       toEmail: contribution.supporter_email,
@@ -133,26 +143,26 @@ export const rejectContribution = async (req: Request, res: Response) => {
   }
 };
 
-// Supporter
 export const createContribution = async (req: Request, res: Response) => {
   try {
     const db = getDB();
+    const requesterEmail = req.decoded?.email;
     const {
       campaign_id,
       campaign_title,
       contribution_amount,
-      supporter_email,
       supporter_name,
       creator_name,
       creator_email,
       message,
     } = req.body;
 
+    const supporter_email = requesterEmail; // ⬅️ body থেকে না, verified token থেকে
+
     if (!campaign_id || !contribution_amount || !supporter_email) {
       return res.status(400).send({ message: "Missing required fields" });
     }
 
-    // supporter এর credit
     const user = await db
       .collection("user")
       .findOne({ email: supporter_email });
@@ -160,7 +170,6 @@ export const createContribution = async (req: Request, res: Response) => {
       return res.status(400).send({ message: "Insufficient credits" });
     }
 
-    // credit deduct
     await db
       .collection("user")
       .updateOne(
@@ -185,7 +194,6 @@ export const createContribution = async (req: Request, res: Response) => {
       .collection("contributions")
       .insertOne(newContribution);
 
-    // creator কে notification
     await db.collection("notifications").insertOne({
       message: `${supporter_name} contributed ${contribution_amount} credits to ${campaign_title}`,
       toEmail: creator_email,

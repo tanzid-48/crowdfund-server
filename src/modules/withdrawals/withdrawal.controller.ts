@@ -6,13 +6,11 @@ import { ObjectId } from "mongodb";
 export const createWithdrawal = async (req: Request, res: Response) => {
   try {
     const db = getDB();
-    const {
-      creator_email,
-      creator_name,
-      withdrawal_credit,
-      payment_system,
-      account_number,
-    } = req.body;
+    const requesterEmail = req.decoded?.email;
+    const { creator_name, withdrawal_credit, payment_system, account_number } =
+      req.body;
+
+    const creator_email = requesterEmail;
 
     if (
       !creator_email ||
@@ -94,7 +92,6 @@ export const getWithdrawalsForCreator = async (req: Request, res: Response) => {
   }
 };
 
-// Creator এর available
 export const getAvailableCredits = async (req: Request, res: Response) => {
   try {
     const db = getDB();
@@ -132,8 +129,6 @@ export const getAvailableCredits = async (req: Request, res: Response) => {
   }
 };
 
-//admin
-
 export const getPendingWithdrawals = async (req: Request, res: Response) => {
   try {
     const db = getDB();
@@ -157,9 +152,29 @@ export const approveWithdrawal = async (req: Request, res: Response) => {
       return res.status(400).send({ message: "Invalid withdrawal id" });
     }
 
+    const withdrawal = await db
+      .collection("withdrawals")
+      .findOne({ _id: new ObjectId(id) });
+    if (!withdrawal) {
+      return res.status(404).send({ message: "Withdrawal not found" });
+    }
+
+    const campaigns = await db
+      .collection("campaigns")
+      .find({ creator_email: withdrawal.creator_email })
+      .toArray();
+    if (campaigns.length > 0) {
+      await db
+        .collection("campaigns")
+        .updateOne(
+          { _id: campaigns[0]._id },
+          { $inc: { amount_raised: -withdrawal.withdrawal_credit } },
+        );
+    }
+
     await db
       .collection("withdrawals")
-      .updateOne({ _id: new ObjectId(id) }, { $set: { status: "approved" } });
+      .updateOne({ _id: withdrawal._id }, { $set: { status: "approved" } });
 
     res.send({ message: "Withdrawal approved" });
   } catch (err) {
