@@ -109,3 +109,20 @@ export const getAdminStats = async (req: Request, res: Response) => {
     res.status(500).send({ message: "Failed to fetch admin stats" });
   }
 };
+export const updateOwnProfile = async (req: Request, res: Response) => {
+  try {
+    const db = getDB();
+    const email = req.decoded?.email;
+    const { name, image } = req.body;
+
+    if (!email) {
+      return res.status(401).send({ message: "unauthorized" });
+    }
+
+    await db.collection("user").updateOne({ email }, { $set: { name, image } });
+
+    res.send({ message: "Profile updated" });
+  } catch (err) {
+    res.status(500).send({ message: "Failed to update profile" });
+  }
+};

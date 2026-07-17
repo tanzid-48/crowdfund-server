@@ -7,6 +7,7 @@ import {
 } from "./user.controller";
 import { verifyToken } from "../../middlewares/verifyToken";
 import { verifyRole } from "../../middlewares/verifyRole";
+import { updateOwnProfile } from "./user.controller";
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.get("/stats", verifyToken, verifyRole(["admin"]), getAdminStats);
 router.get("/", verifyToken, verifyRole(["admin"]), getAllUsers);
 router.patch("/:id/role", verifyToken, verifyRole(["admin"]), updateUserRole);
 router.delete("/:id", verifyToken, verifyRole(["admin"]), deleteUser);
+router.patch("/profile", verifyToken, updateOwnProfile);
 
 export default router;
